@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2006-2012, Arvid Norberg
+Copyright (c) 2006-2014, Arvid Norberg
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -82,7 +82,7 @@ POSSIBILITY OF SUCH DAMAGE.
 // ================
 // 
 // The plugin interface consists of three base classes that the plugin may
-// implement. These are called ``plugin``, ``torrent_plugin`` and ``peer_plugin``.
+// implement. These are called plugin, torrent_plugin and peer_plugin.
 // They are found in the ``<libtorrent/extensions.hpp>`` header.
 // 
 // These plugins are instantiated for each session, torrent and possibly each peer,
@@ -217,7 +217,7 @@ namespace libtorrent
 		{ return boost::shared_ptr<torrent_plugin>(); }
 
 		// called when plugin is added to a session
-		virtual void added(boost::weak_ptr<aux::session_impl>) {}
+		virtual void added(aux::session_impl*) {}
 
 		// called when an alert is posted
 		// alerts that are filtered are not
@@ -248,7 +248,7 @@ namespace libtorrent
 		// function).
 		// 
 		// If you need an extension to the peer connection (which most plugins do) you
-		// are supposed to return an instance of your ``peer_plugin`` class. Which in
+		// are supposed to return an instance of your peer_plugin class. Which in
 		// turn will have its hook functions called on event specific to that peer.
 		// 
 		// The ``peer_connection`` will be valid as long as the ``shared_ptr`` is being
@@ -315,6 +315,12 @@ namespace libtorrent
 			int /*src*/, int /*flags*/) {}
 	};
 
+	// peer plugins are associated with a specific peer. A peer could be
+	// both a regular bittorrent peer (``bt_peer_connection``) or one of the
+	// web seed connections (``web_peer_connection`` or ``http_seed_connection``).
+	// In order to only attach to certain peers, make your
+	// torrent_plugin::new_connection only return a plugin for certain peer
+	// connection types
 	struct TORRENT_EXPORT peer_plugin
 	{
 		// hidden
@@ -329,7 +335,7 @@ namespace libtorrent
 		virtual void add_handshake(entry&) {}
 		
 		// called when the peer is being disconnected.
-		virtual void on_disconnect(error_code const& ec) {}
+		virtual void on_disconnect(error_code const& /*ec*/) {}
 
 		// called when the peer is successfully connected. Note that
 		// incoming connections will have been connected by the time
@@ -377,7 +383,7 @@ namespace libtorrent
 
 		// called when libtorrent think this peer should be disconnected.
 		// if the plugin returns false, the peer will not be disconnected.
-		virtual bool can_disconnect(error_code const& ec) { return true; }
+		virtual bool can_disconnect(error_code const& /*ec*/) { return true; }
 
 		// called when an extended message is received. If returning true,
 		// the message is not processed by any other plugin and if false

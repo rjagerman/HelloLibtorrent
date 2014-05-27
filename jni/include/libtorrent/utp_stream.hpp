@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2009-2012, Arvid Norberg
+Copyright (c) 2009-2014, Arvid Norberg
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -119,7 +119,8 @@ namespace libtorrent
 */
 
 // internal: the different kinds of uTP packets
-enum { ST_DATA = 0, ST_FIN, ST_STATE, ST_RESET, ST_SYN, NUM_TYPES };
+enum utp_socket_state_t
+{ ST_DATA, ST_FIN, ST_STATE, ST_RESET, ST_SYN, NUM_TYPES };
 
 struct utp_header
 {
@@ -350,7 +351,7 @@ public:
 			ec = asio::error::would_block;
 			return 0;
 		}
-#if defined TORRENT_DEBUG || TORRENT_RELEASE_ASSERTS
+#if TORRENT_USE_ASSERTS
 		size_t buf_size = 0;
 #endif
 
@@ -360,7 +361,7 @@ public:
 			using asio::buffer_cast;
 			using asio::buffer_size;
 			add_read_buffer(buffer_cast<void*>(*i), buffer_size(*i));
-#if defined TORRENT_DEBUG || TORRENT_RELEASE_ASSERTS
+#if TORRENT_USE_ASSERTS
 			buf_size += buffer_size(*i);
 #endif
 		}
@@ -374,7 +375,7 @@ public:
 	std::size_t write_some(Const_Buffers const& buffers, error_code& ec)
 	{
 		TORRENT_ASSERT(false && "not implemented!");
-		// TODO: 1 implement blocking write. Low priority since it's not used (yet)
+		// TODO: implement blocking write. Low priority since it's not used (yet)
 		return 0;
 	}
 
@@ -453,6 +454,8 @@ public:
 
 	asio::io_service& m_io_service;
 	utp_socket_impl* m_impl;
+
+	// this field requires another 8 bytes (including padding)
 	bool m_open;
 };
 

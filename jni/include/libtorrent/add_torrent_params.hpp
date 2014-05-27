@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2009-2012, Arvid Norberg
+Copyright (c) 2009-2014, Arvid Norberg
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -48,10 +48,8 @@ POSSIBILITY OF SUCH DAMAGE.
 namespace libtorrent
 {
 	class torrent_info;
-#ifdef TORRENT_DISABLE_EXTENSIONS
-	struct torrent;
+	class torrent;
 	struct torrent_plugin;
-#endif
 
 	// The add_torrent_params is a parameter pack for adding torrents to a session.
 	// The key fields when adding a torrent are:
@@ -86,6 +84,14 @@ namespace libtorrent
 			, userdata(0)
 #ifndef TORRENT_NO_DEPRECATE
 			, flags(flag_ignore_flags | default_flags)
+#else
+			, flags(default_flags)
+#endif
+			, max_uploads(-1)
+			, max_connections(-1)
+			, upload_limit(-1)
+			, download_limit(-1)
+#ifndef TORRENT_NO_DEPRECATE
 			, seed_mode(false)
 			, override_resume_data(false)
 			, upload_mode(false)
@@ -95,13 +101,7 @@ namespace libtorrent
 			, auto_managed(true)
 			, duplicate_is_error(false)
 			, merge_resume_trackers(false)
-#else
-			, flags(default_flags)
 #endif
-			, max_uploads(-1)
-			, max_connections(-1)
-			, upload_limit(-1)
-			, download_limit(-1)
 		{
 		}
 
@@ -211,7 +211,7 @@ namespace libtorrent
 			flag_merge_resume_trackers = 0x100,
 
 			// on by default and means that this torrent will be part of state
-			// updates when calling `post_torrent_updates()`_.
+			// updates when calling post_torrent_updates().
 			flag_update_subscribe = 0x200,
 
 			// sets the torrent into super seeding mode. If the torrent
@@ -250,13 +250,12 @@ namespace libtorrent
 		// a list of hostname and port pairs, representing DHT nodes to be
 		// added to the session (if DHT is enabled). The hostname may be an IP address.
 		std::vector<std::pair<std::string, int> > dht_nodes;
-		sha1_hash info_hash;
 		std::string name;
 		std::string save_path;
 
 		// The optional parameter, ``resume_data`` can be given if up to date fast-resume data
 		// is available. The fast-resume data can be acquired from a running torrent by calling
-		// save_resume_data() on `torrent_handle`_. See fast-resume_. The ``vector`` that is
+		// save_resume_data() on torrent_handle. See fast-resume_. The ``vector`` that is
 		// passed in will be swapped into the running torrent instance with ``std::vector::swap()``.
 		std::vector<char> resume_data;
 
@@ -277,6 +276,15 @@ namespace libtorrent
 		// can be set to control the initial file priorities when adding
 		// a torrent. The semantics are the same as for ``torrent_handle::prioritize_files()``.
 		std::vector<boost::uint8_t> file_priorities;
+
+		// torrent extension construction functions can be added to this
+		// vector to have them be added immediately when the torrent is
+		// constructed. This may be desired over the torrent_handle::add_extension()
+		// in order to avoid race conditions. For instance it may be important
+		// to have the plugin catch events that happen very early on after
+		// the torrent is created.
+		std::vector<boost::function<boost::shared_ptr<torrent_plugin>(torrent*, void*)> >
+			extensions;
 
 		// the default tracker id to be used when announcing to trackers. By default
 		// this is empty, and no tracker ID is used, since this is an optional argument. If
@@ -308,6 +316,25 @@ namespace libtorrent
 		// flags controlling aspects of this torrent and how it's added. See flags_t for details.
 		boost::uint64_t flags;
 
+		// set this to the info hash of the torrent to add in case the info-hash
+		// is the only known property of the torrent. i.e. you don't have a
+		// .torrent file nor a magnet link.
+		sha1_hash info_hash;
+
+		// ``max_uploads``, ``max_connections``, ``upload_limit``, ``download_limit`` correspond
+		// to the ``set_max_uploads()``, ``set_max_connections()``, ``set_upload_limit()`` and
+		// ``set_download_limit()`` functions on torrent_handle. These values let you initialize
+		// these settings when the torrent is added, instead of calling these functions immediately
+		// following adding it.
+		// 
+		// -1 means unlimited on these settings
+		// just like their counterpart functions
+		// on torrent_handle
+		int max_uploads;
+		int max_connections;
+		int upload_limit;
+		int download_limit;
+
 #ifndef TORRENT_NO_DEPRECATE
 		bool seed_mode;
 		bool override_resume_data;
@@ -320,28 +347,6 @@ namespace libtorrent
 		bool merge_resume_trackers;
 #endif
 
-		// ``max_uploads``, ``max_connections``, ``upload_limit``, ``download_limit`` correspond
-		// to the ``set_max_uploads()``, ``set_max_connections()``, ``set_upload_limit()`` and
-		// ``set_download_limit()`` functions on torrent_handle_. These values let you initialize
-		// these settings when the torrent is added, instead of calling these functions immediately
-		// following adding it.
-		// 
-		// -1 means unlimited on these settings
-		// just like their counterpart functions
-		// on torrent_handle
-		int max_uploads;
-		int max_connections;
-		int upload_limit;
-		int download_limit;
-
-		// torrent extension construction functions can be added to this
-		// vector to have them be added immediately when the torrent is
-		// constructed. This may be desired over the torrent_handle::add_extension()
-		// in order to avoid race conditions. For instance it may be important
-		// to have the plugin catch events that happen very early on after
-		// the torrent is created.
-		std::vector<boost::function<boost::shared_ptr<torrent_plugin>(torrent*, void*)> >
-			extensions;
 	};
 }
 

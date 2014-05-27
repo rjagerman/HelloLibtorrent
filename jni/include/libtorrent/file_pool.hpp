@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2006-2012, Arvid Norberg
+Copyright (c) 2006-2014, Arvid Norberg
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -107,6 +107,9 @@ namespace libtorrent
 		
 		file_set m_files;
 		mutex m_mutex;
+#if TORRENT_USE_ASSERTS
+		int m_in_use;
+#endif
 
 #if TORRENT_CLOSE_MAY_BLOCK
 		void closer_thread_fun();

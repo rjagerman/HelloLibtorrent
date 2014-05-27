@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2003-2012, Arvid Norberg
+Copyright (c) 2003-2014, Arvid Norberg
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -128,11 +128,19 @@ namespace libtorrent
 
 		// hidden
 		entry(entry const& e);
+
+		// hidden
 		entry();
+
+		// hidden
 		~entry();
 
 		// hidden
 		bool operator==(entry const& e) const;
+		bool operator!=(entry const& e) const { return !(*this == e); }
+		
+		// copies the structure of the right hand side into this
+		// entry.
 		void operator=(lazy_entry const&);
 		void operator=(entry const&);
 		void operator=(dictionary_type const&);
@@ -141,16 +149,18 @@ namespace libtorrent
 		void operator=(integer_type const&);
 
 		// The ``integer()``, ``string()``, ``list()`` and ``dict()`` functions
-		// are accessors that return the respective type. If the ``entry`` object isn't of the
-		// type you request, the accessor will throw libtorrent_exception (which derives from
-		// ``std::runtime_error``). You can ask an ``entry`` for its type through the
-		// ``type()`` function.
+		// are accessors that return the respective type. If the ``entry`` object
+		// isn't of the type you request, the accessor will throw
+		// libtorrent_exception (which derives from ``std::runtime_error``). You
+		// can ask an ``entry`` for its type through the ``type()`` function.
 		// 
-		// If you want to create an ``entry`` you give it the type you want it to have in its
-		// constructor, and then use one of the non-const accessors to get a reference which you then
-		// can assign the value you want it to have.
+		// If you want to create an ``entry`` you give it the type you want it to
+		// have in its constructor, and then use one of the non-const accessors
+		// to get a reference which you then can assign the value you want it to
+		// have.
 		// 
-		// The typical code to get info from a torrent file will then look like this::
+		// The typical code to get info from a torrent file will then look like
+		// this::
 		// 
 		// 	entry torrent_file;
 		// 	// ...
@@ -179,8 +189,8 @@ namespace libtorrent
 		// 	}
 		// 
 		// 
-		// To make it easier to extract information from a torrent file, the class torrent_info
-		// exists.
+		// To make it easier to extract information from a torrent file, the
+		// class torrent_info exists.
 		integer_type& integer();
 		const integer_type& integer() const;
 		string_type& string();
@@ -193,16 +203,17 @@ namespace libtorrent
 		// swaps the content of *this* with ``e``.
 		void swap(entry& e);
 
-		// All of these functions requires the entry to be a dictionary, if it isn't they
-		// will throw ``libtorrent::type_error``.
+		// All of these functions requires the entry to be a dictionary, if it
+		// isn't they will throw ``libtorrent::type_error``.
 		//
-		// The non-const versions of the ``operator[]`` will return a reference to either
-		// the existing element at the given key or, if there is no element with the
-		// given key, a reference to a newly inserted element at that key.
+		// The non-const versions of the ``operator[]`` will return a reference
+		// to either the existing element at the given key or, if there is no
+		// element with the given key, a reference to a newly inserted element at
+		// that key.
 		//
 		// The const version of ``operator[]`` will only return a reference to an
-		// existing element at the given key. If the key is not found, it will throw
-		// ``libtorrent::type_error``.
+		// existing element at the given key. If the key is not found, it will
+		// throw ``libtorrent::type_error``.
  		entry& operator[](char const* key);
 		entry& operator[](std::string const& key);
 #ifndef BOOST_NO_EXCEPTIONS
@@ -210,20 +221,20 @@ namespace libtorrent
 		const entry& operator[](std::string const& key) const;
 #endif
 
-		// These functions requires the entry to be a dictionary, if it isn't they
-		// will throw ``libtorrent::type_error``.
+		// These functions requires the entry to be a dictionary, if it isn't
+		// they will throw ``libtorrent::type_error``.
 		//
-		// They will look for an element at the given key in the dictionary, if the
-		// element cannot be found, they will return 0. If an element with the given
-		// key is found, the return a pointer to it.
+		// They will look for an element at the given key in the dictionary, if
+		// the element cannot be found, they will return 0. If an element with
+		// the given key is found, the return a pointer to it.
 		entry* find_key(char const* key);
 		entry const* find_key(char const* key) const;
 		entry* find_key(std::string const& key);
 		entry const* find_key(std::string const& key) const;
 
-#if (defined TORRENT_VERBOSE_LOGGING || defined TORRENT_DEBUG) && TORRENT_USE_IOSTREAM
-		void print(std::ostream& os, int indent = 0) const;
-#endif
+		// returns a pretty-printed string representation
+		// of the bencoded structure, with JSON-style syntax
+		std::string to_string() const;
 
 	protected:
 
@@ -232,6 +243,8 @@ namespace libtorrent
 		void destruct();
 
 	private:
+
+		void to_string_impl(std::string& out, int indent) const;
 
 #if (defined(_MSC_VER) && _MSC_VER < 1310) || TORRENT_COMPLETE_TYPES_REQUIRED
 		// workaround for msvc-bug.
@@ -254,27 +267,25 @@ namespace libtorrent
 		integer_type data[(union_size + sizeof(integer_type) - 1)
 			/ sizeof(integer_type)];
 
-		// the bitfield is used so that the m_type_queried
-		// field still fits, so that the ABI is the same for
-		// debug builds and release builds. It appears to be
-		// very hard to match debug builds with debug versions
-		// of libtorrent
+		// the bitfield is used so that the m_type_queried field still fits, so
+		// that the ABI is the same for debug builds and release builds. It
+		// appears to be very hard to match debug builds with debug versions of
+		// libtorrent
 		boost::uint8_t m_type:7;
 
 	public:
-		// in debug mode this is set to false by bdecode
-		// to indicate that the program has not yet queried
-		// the type of this entry, and sould not assume
-		// that it has a certain type. This is asserted in
-		// the accessor functions. This does not apply if
-		// exceptions are used.
+		// in debug mode this is set to false by bdecode to indicate that the
+		// program has not yet queried the type of this entry, and sould not
+		// assume that it has a certain type. This is asserted in the accessor
+		// functions. This does not apply if exceptions are used.
 		mutable boost::uint8_t m_type_queried:1;
 	};
 
-#if defined TORRENT_DEBUG && TORRENT_USE_IOSTREAM
+#if TORRENT_USE_IOSTREAM
+	// prints the bencoded structure to the ostream as a JSON-style structure.
 	inline std::ostream& operator<<(std::ostream& os, const entry& e)
 	{
-		e.print(os, 0);
+		os << e.to_string();
 		return os;
 	}
 #endif

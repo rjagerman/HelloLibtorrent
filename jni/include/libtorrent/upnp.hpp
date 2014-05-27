@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2007-2012, Arvid Norberg
+Copyright (c) 2007-2014, Arvid Norberg
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -93,20 +93,7 @@ namespace libtorrent
 		};
 	}
 
-#if BOOST_VERSION < 103500
-	extern asio::error::error_category upnp_category;
-#else
-
-	struct TORRENT_EXPORT upnp_error_category : boost::system::error_category
-	{
-		virtual const char* name() const BOOST_SYSTEM_NOEXCEPT;
-		virtual std::string message(int ev) const BOOST_SYSTEM_NOEXCEPT;
-		virtual boost::system::error_condition default_error_condition(int ev) const BOOST_SYSTEM_NOEXCEPT
-		{ return boost::system::error_condition(ev, *this); }
-	};
-
-	extern TORRENT_EXPORT upnp_error_category upnp_category;
-#endif
+	TORRENT_EXPORT boost::system::error_category& get_upnp_category();
 
 // int: port-mapping index
 // address: external address as queried from router
@@ -267,12 +254,12 @@ private:
 			, supports_specific_external(true)
 			, disabled(false)
 		{
-#if defined TORRENT_DEBUG || TORRENT_RELEASE_ASSERTS
+#if TORRENT_USE_ASSERTS
 			magic = 1337;
 #endif
 		}
 
-#if defined TORRENT_DEBUG || TORRENT_RELEASE_ASSERTS
+#if TORRENT_USE_ASSERTS
 		~rootdevice()
 		{
 			TORRENT_ASSERT(magic == 1337);
@@ -308,7 +295,7 @@ private:
 
 		mutable boost::shared_ptr<http_connection> upnp_connection;
 
-#if defined TORRENT_DEBUG || TORRENT_RELEASE_ASSERTS
+#if TORRENT_USE_ASSERTS
 		int magic;
 #endif
 		void close() const

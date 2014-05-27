@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2006-2012, Arvid Norberg
+Copyright (c) 2006-2014, Arvid Norberg
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -85,6 +85,8 @@ struct routing_table_node
 class TORRENT_EXTRA_EXPORT routing_table
 {
 public:
+	typedef std::vector<routing_table_node> table_t;
+
 	routing_table(node_id const& id, int bucket_size
 		, dht_settings const& settings);
 
@@ -127,6 +129,8 @@ public:
 	// are nearest to the given id.
 	void find_node(node_id const& id, std::vector<node_entry>& l
 		, int options, int count = 0);
+	void remove_node(node_entry* n
+		, table_t::iterator bucket) ;
 	
 	int bucket_size(int bucket) const
 	{
@@ -168,9 +172,11 @@ public:
 
 	int bucket_limit(int bucket) const;
 
-private:
+#if TORRENT_USE_INVARIANT_CHECKS
+	void check_invariant() const;
+#endif
 
-	typedef std::vector<routing_table_node> table_t;
+private:
 
 	table_t::iterator find_bucket(node_id const& id);
 
@@ -179,13 +185,14 @@ private:
 	// return a pointer the node_entry with the given endpoint
 	// or 0 if we don't have such a node. Both the address and the
 	// port has to match
-	node_entry* find_node(udp::endpoint const& ep, routing_table::table_t::iterator* bucket);
+	node_entry* find_node(udp::endpoint const& ep
+		, routing_table::table_t::iterator* bucket);
+
+	dht_settings const& m_settings;
 
 	// constant called k in paper
 	int m_bucket_size;
 	
-	dht_settings const& m_settings;
-
 	// (k-bucket, replacement cache) pairs
 	// the first entry is the bucket the furthest
 	// away from our own ID. Each time the bucket
@@ -222,7 +229,7 @@ private:
 	// table. It's used to only allow a single entry
 	// per IP in the whole table. Currently only for
 	// IPv4
-	std::set<address_v4::bytes_type> m_ips;
+	std::multiset<address_v4::bytes_type> m_ips;
 };
 
 } } // namespace libtorrent::dht

@@ -1,7 +1,7 @@
 /*
 
-Copyright (c) 2003-2012, Arvid Norberg
-Copyright (c) 2007-2012, Arvid Norberg, Un Shyam
+Copyright (c) 2003-2014, Arvid Norberg
+Copyright (c) 2007-2014, Arvid Norberg, Un Shyam
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -206,11 +206,11 @@ namespace libtorrent
 		void on_allowed_fast(int received);
 #ifndef TORRENT_DISABLE_EXTENSIONS
 		void on_holepunch();
-#endif
 
 		void on_extended(int received);
 
 		void on_extended_handshake();
+#endif
 
 		typedef void (bt_peer_connection::*message_handler)(int received);
 
@@ -249,7 +249,7 @@ namespace libtorrent
 		void on_connected();
 		void on_metadata();
 
-#if defined TORRENT_DEBUG && !defined TORRENT_DISABLE_INVARIANT_CHECKS
+#if TORRENT_USE_INVARIANT_CHECKS
 		void check_invariant() const;
 		ptime m_last_choke;
 #endif
@@ -344,10 +344,46 @@ private:
 		};
 #endif
 
-		std::string m_client_version;
-
 		// state of on_receive
-		state m_state;
+		boost::uint8_t m_state;
+
+		// this is set to true if the handshake from
+		// the peer indicated that it supports the
+		// extension protocol
+		bool m_supports_extensions:1;
+		bool m_supports_dht_port:1;
+		bool m_supports_fast:1;
+
+#if TORRENT_USE_ASSERTS
+		// this is set to true when the client's
+		// bitfield is sent to this peer
+		bool m_sent_bitfield:1;
+
+		bool m_in_constructor:1;
+		
+		bool m_sent_handshake:1;
+#endif
+
+#ifndef TORRENT_DISABLE_ENCRYPTION
+		// this is set to true after the encryption method has been
+		// succesfully negotiated (either plaintext or rc4), to signal
+		// automatic encryption/decryption.
+		bool m_encrypted:1;
+
+		// true if rc4, false if plaintext
+		bool m_rc4_encrypted:1;
+#endif
+
+#ifndef TORRENT_DISABLE_EXTENSIONS
+		// the message ID for upload only message
+		// 0 if not supported
+		boost::uint8_t m_upload_only_id;
+
+		// the message ID for holepunch messages
+		boost::uint8_t m_holepunch_id;
+#endif
+
+		std::string m_client_version;
 
 		static const message_handler m_message_handler[num_supported_messages];
 
@@ -376,43 +412,7 @@ private:
 		// don't suggest it again
 		bitfield m_sent_suggested_pieces;
 
-#ifndef TORRENT_DISABLE_EXTENSIONS
-		// the message ID for upload only message
-		// 0 if not supported
-		boost::uint8_t m_upload_only_id;
-
-		// the message ID for holepunch messages
-		boost::uint8_t m_holepunch_id;
-
-		// the message ID for don't-have message
-		boost::uint8_t m_dont_have_id;
-
-		// the message ID for share mode message
-		// 0 if not supported
-		boost::uint8_t m_share_mode_id;
-
-		char m_reserved_bits[8];
-#endif
-		// this is set to true if the handshake from
-		// the peer indicated that it supports the
-		// extension protocol
-		bool m_supports_extensions:1;
-		bool m_supports_dht_port:1;
-		bool m_supports_fast:1;
-
 #ifndef TORRENT_DISABLE_ENCRYPTION
-		// this is set to true after the encryption method has been
-		// succesfully negotiated (either plaintext or rc4), to signal
-		// automatic encryption/decryption.
-		bool m_encrypted;
-
-		// true if rc4, false if plaintext
-		bool m_rc4_encrypted;
-
-		// used to disconnect peer if sync points are not found within
-		// the maximum number of bytes
-		int m_sync_bytes_read;
-
 		// initialized during write_pe1_2_dhkey, and destroyed on
 		// creation of m_enc_handler. Cannot reinitialize once
 		// initialized.
@@ -432,18 +432,24 @@ private:
 		// the sync hash (hash("req1",secret)). Destroyed after the
 		// sync step.
 		boost::scoped_ptr<sha1_hash> m_sync_hash;
+
+		// used to disconnect peer if sync points are not found within
+		// the maximum number of bytes
+		int m_sync_bytes_read;
 #endif // #ifndef TORRENT_DISABLE_ENCRYPTION
 
-#if defined TORRENT_DEBUG || TORRENT_RELEASE_ASSERTS
-		// this is set to true when the client's
-		// bitfield is sent to this peer
-		bool m_sent_bitfield;
+#ifndef TORRENT_DISABLE_EXTENSIONS
+		// the message ID for don't-have message
+		boost::uint8_t m_dont_have_id;
 
-		bool m_in_constructor;
-		
-		bool m_sent_handshake;
+		// the message ID for share mode message
+		// 0 if not supported
+		boost::uint8_t m_share_mode_id;
+
+		// the reserved bits received from the other peer
+		// in the bittorrent handshake
+		char m_reserved_bits[8];
 #endif
-
 	};
 }
 

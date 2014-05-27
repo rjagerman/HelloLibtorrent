@@ -119,6 +119,7 @@ namespace libtorrent
 	namespace dht
 	{
 		struct dht_tracker;
+		class item;
 	}
 
 	struct bencode_map_entry;
@@ -191,7 +192,6 @@ namespace libtorrent
 			, boost::noncopyable
 			, initialize_timer
 			, udp_socket_observer
-			, boost::enable_shared_from_this<session_impl>
 		{
 #if defined TORRENT_VERBOSE_LOGGING || defined TORRENT_LOGGING || defined TORRENT_ERROR_LOGGING
 			// this needs to be destructed last, since other components may log
@@ -229,7 +229,7 @@ namespace libtorrent
 				torrent*, void*)> ext);
 			void add_ses_extension(boost::shared_ptr<plugin> ext);
 #endif
-#if defined TORRENT_DEBUG || TORRENT_RELEASE_ASSERTS
+#if TORRENT_USE_ASSERTS
 			bool has_peer(peer_connection const* p) const
 			{
 				TORRENT_ASSERT(is_network_thread());
@@ -265,7 +265,7 @@ namespace libtorrent
 
 			void incoming_connection(boost::shared_ptr<socket_type> const& s);
 		
-#if defined TORRENT_DEBUG || TORRENT_RELEASE_ASSERTS
+#if TORRENT_USE_ASSERTS
 			bool is_network_thread() const
 			{
 #if defined BOOST_HAS_PTHREADS
@@ -313,6 +313,22 @@ namespace libtorrent
 			// it will prioritize them for announcing to
 			// the DHT, to get the initial peers quickly
 			void prioritize_dht(boost::weak_ptr<torrent> t);
+
+			void get_immutable_callback(sha1_hash target
+				, dht::item const& i);
+			void get_mutable_callback(dht::item const& i);
+
+			void dht_get_immutable_item(sha1_hash const& target);
+
+			void dht_get_mutable_item(boost::array<char, 32> key
+				, std::string salt = std::string());
+
+			void dht_put_item(entry data, sha1_hash target);
+
+			void dht_put_mutable_item(boost::array<char, 32> key
+				, boost::function<void(entry&, boost::array<char,64>&
+					, boost::uint64_t&, std::string const&)> cb
+				, std::string salt = std::string());
 
 #ifndef TORRENT_NO_DEPRECATE
 			entry dht_state() const;
@@ -485,6 +501,10 @@ namespace libtorrent
 			void stop_natpmp();
 			void stop_upnp();
 
+			int add_port_mapping(int t, int external_port
+				, int local_port);
+			void delete_port_mapping(int handle);
+
 			int next_port();
 
 			void add_redundant_bytes(size_type b, int reason)
@@ -557,7 +577,7 @@ namespace libtorrent
 				--m_num_active_finished;
 			}
 
-#if defined TORRENT_DEBUG || TORRENT_RELEASE_ASSERTS
+#if TORRENT_USE_ASSERTS
 			bool in_state_updates(boost::shared_ptr<torrent> t)
 			{
 				return std::find_if(m_state_updates.begin(), m_state_updates.end()
@@ -748,6 +768,14 @@ namespace libtorrent
 			// they would linger and stall or hang session shutdown
 			std::set<boost::shared_ptr<socket_type> > m_incoming_sockets;
 			
+			// peer connections are put here when disconnected to avoid
+			// race conditions with the disk thread. It's important that
+			// peer connections are destructed from the network thread,
+			// once a peer is disconnected, it's put in this list and
+			// every second their refcount is checked, and if it's 1,
+			// they are deleted (from the network thread)
+			std::vector<boost::intrusive_ptr<peer_connection> > m_undead_peers;
+
 			// filters incoming connections
 			ip_filter m_ip_filter;
 
@@ -784,6 +812,11 @@ namespace libtorrent
 			// we might need more than one listen socket
 			std::list<listen_socket_t> m_listen_sockets;
 
+#if TORRENT_USE_I2P
+			i2p_connection m_i2p_conn;
+			boost::shared_ptr<socket_type> m_i2p_listen_socket;
+#endif
+
 #ifdef TORRENT_USE_OPENSSL
 			void ssl_handshake(error_code const& ec, boost::shared_ptr<socket_type> s);
 #endif
@@ -795,11 +828,6 @@ namespace libtorrent
 
 			void open_new_incoming_socks_connection();
 
-#if TORRENT_USE_I2P
-			i2p_connection m_i2p_conn;
-			boost::shared_ptr<socket_type> m_i2p_listen_socket;
-#endif
-
 			void setup_listener(listen_socket_t* s, tcp::endpoint ep, int& retries
 				, bool v6_only, int flags, error_code& ec);
 
@@ -809,13 +837,6 @@ namespace libtorrent
 #ifndef TORRENT_DISABLE_DHT	
 			entry m_dht_state;
 #endif
-			// set to true when the session object
-			// is being destructed and the thread
-			// should exit
-			bool m_abort;
-
-			// is true if the session is paused
-			bool m_paused;
 
 			// the number of unchoked peers as set by the auto-unchoker
 			// this should always be >= m_max_uploads
@@ -867,12 +888,6 @@ namespace libtorrent
 			int m_peak_up_rate;
 			int m_peak_down_rate;
 
-			// is false by default and set to true when
-			// the first incoming connection is established
-			// this is used to know if the client is behind
-			// NAT or not.
-			bool m_incoming_connection;
-			
 			void on_disk_queue();
 			void on_tick(error_code const& e);
 
@@ -1018,7 +1033,7 @@ namespace libtorrent
 			// get to download again after the disk has been
 			// blocked
 			connection_map::iterator m_next_disk_peer;
-#if defined TORRENT_DEBUG && !defined TORRENT_DISABLE_INVARIANT_CHECKS
+#if TORRENT_USE_INVARIANT_CHECKS
 			void check_invariant() const;
 #endif
 
@@ -1206,6 +1221,19 @@ namespace libtorrent
 			// no longer needs to execute the auto-management.
 			bool m_need_auto_manage;
 
+			// set to true when the session object
+			// is being destructed and the thread
+			// should exit
+			bool m_abort;
+
+			// is true if the session is paused
+			bool m_paused;
+			// is false by default and set to true when
+			// the first incoming connection is established
+			// this is used to know if the client is behind
+			// NAT or not.
+			bool m_incoming_connection;
+			
 			// redundant bytes per category
 			size_type m_redundant_bytes[7];
 
@@ -1218,7 +1246,7 @@ namespace libtorrent
 			// the main working thread
 			boost::scoped_ptr<thread> m_thread;
 
-#if (defined TORRENT_DEBUG || TORRENT_RELEASE_ASSERTS) && defined BOOST_HAS_PTHREADS
+#if TORRENT_USE_ASSERTS && defined BOOST_HAS_PTHREADS
 			pthread_t m_network_thread;
 #endif
 		};

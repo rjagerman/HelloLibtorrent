@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2006-2012, Arvid Norberg
+Copyright (c) 2006-2014, Arvid Norberg
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -34,6 +34,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #define RPC_MANAGER_HPP
 
 #include <vector>
+#include <deque>
 #include <map>
 #include <boost/cstdint.hpp>
 #include <boost/pool/pool.hpp>
@@ -89,10 +90,10 @@ public:
 
 	void add_our_id(entry& e);
 
-#if defined TORRENT_DEBUG || TORRENT_RELEASE_ASSERTS
+#if TORRENT_USE_ASSERTS
 	size_t allocation_size() const;
 #endif
-#ifdef TORRENT_DEBUG
+#if TORRENT_USE_INVARIANT_CHECKS
 	void check_invariant() const;
 #endif
 
@@ -107,14 +108,13 @@ private:
 
 	mutable boost::pool<> m_pool_allocator;
 
-	typedef std::list<observer_ptr> transactions_t;
+	typedef std::deque<observer_ptr> transactions_t;
 	transactions_t m_transactions;
 	
 	udp_socket_interface* m_sock;
-	node_id m_our_id;
 	routing_table& m_table;
 	ptime m_timer;
-	node_id m_random_number;
+	node_id m_our_id;
 	int m_allocated_observers;
 	bool m_destructing;
 };

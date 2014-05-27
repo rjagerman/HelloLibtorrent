@@ -30,10 +30,10 @@ include $(PREBUILT_STATIC_LIBRARY)
 
 # ------------------------------------------
 # Define prebuilt static boost python library
-include $(CLEAR_VARS)
-LOCAL_MODULE    := libboost_python
-LOCAL_SRC_FILES := libs/libboost_python.a
-include $(PREBUILT_STATIC_LIBRARY)
+#include $(CLEAR_VARS)
+#LOCAL_MODULE    := libboost_python
+#LOCAL_SRC_FILES := libs/libboost_python.a
+#include $(PREBUILT_STATIC_LIBRARY)
 
 # ------------------------------------------
 # Define prebuilt shared libtorrent library
@@ -61,7 +61,7 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
 
 LOCAL_SRC_FILES  := hello.cpp
 
-LOCAL_STATIC_LIBRARIES := libboost_system libboost_filesystem libboost_python
+LOCAL_STATIC_LIBRARIES := libboost_system libboost_filesystem #libboost_python
 
 LOCAL_SHARED_LIBRARIES := libtorrent-rasterbar
 

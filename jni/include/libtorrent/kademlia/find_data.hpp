@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2006-2012, Arvid Norberg & Daniel Wallin
+Copyright (c) 2006-2014, Arvid Norberg & Daniel Wallin
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -57,22 +57,14 @@ class node_impl;
 
 // -------- find data -----------
 
-//TODO: 3 rename this class to get_peers, since that's what it does
-// find_data is an unnecessarily generic name
-class find_data : public traversal_algorithm
+struct find_data : traversal_algorithm
 {
-public:
-	typedef boost::function<void(std::vector<tcp::endpoint> const&)> data_callback;
-	typedef boost::function<void(std::vector<std::pair<node_entry, std::string> > const&, bool)> nodes_callback;
-
-	void got_peers(std::vector<tcp::endpoint> const& peers);
-	void got_write_token(node_id const& n, std::string const& write_token)
-	{ m_write_tokens[n] = write_token; }
+	typedef boost::function<void(std::vector<std::pair<node_entry, std::string> > const&)> nodes_callback;
 
 	find_data(node_impl& node, node_id target
-		, data_callback const& dcallback
-		, nodes_callback const& ncallback
-		, bool noseeds);
+		, nodes_callback const& ncallback);
+
+	void got_write_token(node_id const& n, std::string const& write_token);
 
 	virtual void start();
 
@@ -83,50 +75,23 @@ public:
 protected:
 
 	virtual void done();
-	observer_ptr new_observer(void* ptr, udp::endpoint const& ep, node_id const& id);
-	virtual bool invoke(observer_ptr o);
+	virtual observer_ptr new_observer(void* ptr, udp::endpoint const& ep
+		, node_id const& id);
 
-	data_callback m_data_callback;
 	nodes_callback m_nodes_callback;
 	std::map<node_id, std::string> m_write_tokens;
-	node_id const m_target;
-	bool m_done:1;
-	bool m_got_peers:1;
-	bool m_noseeds:1;
+	bool m_done;
 };
 
-class obfuscated_get_peers : public find_data
+struct find_data_observer : traversal_observer
 {
-public:
-	typedef find_data::nodes_callback done_callback;
-
-	obfuscated_get_peers(node_impl& node, node_id target
-		, data_callback const& dcallback
-		, nodes_callback const& ncallback
-		, bool noseeds);
-
-	virtual char const* name() const;
-
-protected:
-
-	observer_ptr new_observer(void* ptr, udp::endpoint const& ep, node_id const& id);
-	virtual bool invoke(observer_ptr o);
-	virtual void done();
-private:
-	// when set to false, we no longer obfuscate
-	// the target hash, and send regular get_peers
-	bool m_obfuscated;
-};
-
-class find_data_observer : public observer
-{
-public:
 	find_data_observer(
 		boost::intrusive_ptr<traversal_algorithm> const& algorithm
 		, udp::endpoint const& ep, node_id const& id)
-		: observer(algorithm, ep, id)
+		: traversal_observer(algorithm, ep, id)
 	{}
-	void reply(msg const&);
+
+	virtual void reply(msg const&);
 };
 
 } } // namespace libtorrent::dht

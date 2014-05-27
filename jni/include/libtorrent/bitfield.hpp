@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2008-2012, Arvid Norberg
+Copyright (c) 2008-2014, Arvid Norberg
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -62,6 +62,10 @@ namespace libtorrent
 		{ assign(b, bits); }
 		bitfield(bitfield const& rhs): m_bytes(0), m_size(0), m_own(false)
 		{ assign(rhs.bytes(), rhs.size()); }
+#if __cplusplus > 199711L
+		bitfield(bitfield&& rhs): m_bytes(rhs.m_bytes), m_size(rhs.m_size), m_own(rhs.m_own)
+		{ rhs.m_bytes = NULL; }
+#endif
 
 		// assigns a bitfield pointed to ``b`` of ``bits`` number of bits, without
 		// taking ownership of the buffer. This is a way to avoid copying data and
@@ -124,7 +128,7 @@ namespace libtorrent
 				if (m_bytes[i] != 0xff) return false;
 			}
 			int rest = m_size - num_bytes * 8;
-			boost::uint8_t mask = 0xff << (8-rest);
+			boost::uint8_t mask = (0xff << (8-rest)) & 0xff;
 			if (rest > 0 && (m_bytes[num_bytes] & mask) != mask)
 				return false;
 			return true;

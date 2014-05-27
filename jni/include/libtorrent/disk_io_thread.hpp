@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2007-2012, Arvid Norberg
+Copyright (c) 2007-2014, Arvid Norberg
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -89,13 +89,13 @@ namespace libtorrent
 	struct disk_io_job
 	{
 		disk_io_job()
-			: action(read)
-			, buffer(0)
+			: buffer(0)
 			, buffer_size(0)
 			, piece(0)
 			, offset(0)
 			, max_cache_line(0)
 			, cache_min_time(0)
+			, action(read)
 		{}
 
 		enum action_t
@@ -116,19 +116,29 @@ namespace libtorrent
 			, update_settings
 			, read_and_hash
 			, cache_piece
+			, file_priority 
 #ifndef TORRENT_NO_DEPRECATE
 			, finalize_file
 #endif
 		};
 
-		action_t action;
 
 		char* buffer;
-		int buffer_size;
+
+		// this is called when operation completes
+		boost::function<void(int, disk_io_job const&)> callback;
+
 		boost::intrusive_ptr<piece_manager> storage;
-		// arguments used for read and write
-		// piece is used as flags for move_storage
-		int piece, offset;
+
+		boost::shared_ptr<entry> resume_data;
+
+		// the error code from the file operation
+		error_code error;
+
+		// the time when this job was issued. This is used to
+		// keep track of disk I/O congestion
+		ptime start_time;
+
 		// used for move_storage and rename_file. On errors, this is set
 		// to the error message
 		std::string str;
@@ -136,6 +146,12 @@ namespace libtorrent
 		// on error, this is set to the path of the
 		// file the disk operation failed on
 		std::string error_file;
+
+		int buffer_size;
+
+		// arguments used for read and write
+		// piece is used as flags for move_storage
+		int piece, offset;
 
 		// if this is > 0, it specifies the max number of blocks to read
 		// ahead in the read cache for this access. This is only valid
@@ -146,17 +162,7 @@ namespace libtorrent
 		// line caused by this operation stays in the cache
 		int cache_min_time;
 
-		boost::shared_ptr<entry> resume_data;
-
-		// the error code from the file operation
-		error_code error;
-
-		// this is called when operation completes
-		boost::function<void(int, disk_io_job const&)> callback;
-
-		// the time when this job was issued. This is used to
-		// keep track of disk I/O congestion
-		ptime start_time;
+		boost::uint8_t action;
 	};
 
 	// returns true if the fundamental operation
@@ -272,7 +278,7 @@ namespace libtorrent
 		boost::uint32_t cumulative_hash_time;
 		boost::uint32_t cumulative_sort_time;
 
-		// the number of bytes that had to be read back from disk because
+		// the number of blocks that had to be read back from disk because
 		// they were flushed before the SHA-1 hash got to hash them. If this
 		// is large, a larger cache could significantly improve performance
 		int total_read_back;
@@ -316,7 +322,7 @@ namespace libtorrent
 
 		void thread_fun();
 
-#if defined TORRENT_DEBUG && !defined TORRENT_DISABLE_INVARIANT_CHECKS
+#if TORRENT_USE_INVARIANT_CHECKS
 		void check_invariant() const;
 #endif
 		
@@ -513,6 +519,10 @@ namespace libtorrent
 		// when completion notifications are queued, they're stuck
 		// in this list
 		std::list<std::pair<disk_io_job, int> > m_queued_completions;
+
+#if TORRENT_USE_ASSERTS
+		int m_magic;
+#endif
 
 		// thread for performing blocking disk io operations
 		thread m_disk_io_thread;

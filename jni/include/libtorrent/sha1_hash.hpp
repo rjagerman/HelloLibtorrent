@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2003-2012, Arvid Norberg
+Copyright (c) 2003-2014, Arvid Norberg
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -69,7 +69,7 @@ namespace libtorrent
 		enum { number_size = 20 };
 	public:
 		// the number of bytes of the number
-		enum { size = number_size };
+		static const int size = number_size;
 
 		// constructs an all-sero sha1-hash
 		sha1_hash() { clear(); }
@@ -177,7 +177,7 @@ namespace libtorrent
 				for (int i = number_size - 1; i > 0; --i)
 				{
 					m_number[i] >>= n;
-					m_number[i] |= m_number[i-1] << (8 - n);
+					m_number[i] |= (m_number[i-1] << (8 - n)) & 0xff;
 				}
 				m_number[0] >>= n;
 			}
@@ -189,7 +189,6 @@ namespace libtorrent
 		{
 			return std::equal(n.m_number, n.m_number+number_size, m_number);
 		}
-
 		bool operator!=(sha1_hash const& n) const
 		{
 			return !std::equal(n.m_number, n.m_number+number_size, m_number);
@@ -204,7 +203,7 @@ namespace libtorrent
 			return false;
 		}
 		
-		// negate every bit in the sha1-hash
+		// returns a bit-wise negated copy of the sha1-hash
 		sha1_hash operator~()
 		{
 			sha1_hash ret;
@@ -213,13 +212,15 @@ namespace libtorrent
 			return ret;
 		}
 		
-		// bit-wise XOR of the two sha1-hash.
+		// returns the bit-wise XOR of the two sha1-hashes.
 		sha1_hash operator^(sha1_hash const& n) const
 		{
 			sha1_hash ret = *this;
 			ret ^= n;
 			return ret;
 		}
+
+		// in-place bit-wise XOR with the passed in sha1_hash.
 		sha1_hash& operator^=(sha1_hash const& n)
 		{
 			for (int i = 0; i< number_size; ++i)
@@ -227,13 +228,15 @@ namespace libtorrent
 			return *this;
 		}
 
-		// bit-wise AND of the two sha1-hash.
+		// returns the bit-wise AND of the two sha1-hashes.
 		sha1_hash operator&(sha1_hash const& n) const
 		{
 			sha1_hash ret = *this;
 			ret &= n;
 			return ret;
 		}
+
+		// in-place bit-wise AND of the passed in sha1_hash
 		sha1_hash& operator&=(sha1_hash const& n)
 		{
 			for (int i = 0; i< number_size; ++i)
@@ -241,7 +244,7 @@ namespace libtorrent
 			return *this;
 		}
 
-		// bit-wise OR of the two sha1-hash.
+		// in-place bit-wise OR of the two sha1-hash.
 		sha1_hash& operator|=(sha1_hash const& n)
 		{
 			for (int i = 0; i< number_size; ++i)
@@ -258,9 +261,10 @@ namespace libtorrent
 		typedef const unsigned char* const_iterator;
 		typedef unsigned char* iterator;
 
+		// start and end iterators for the hash. The value type
+		// of these iterators is ``unsigned char``.
 		const_iterator begin() const { return m_number; }
 		const_iterator end() const { return m_number+number_size; }
-
 		iterator begin() { return m_number; }
 		iterator end() { return m_number+number_size; }
 
@@ -276,9 +280,6 @@ namespace libtorrent
 	};
 
 	typedef sha1_hash peer_id;
-#ifndef TORRENT_ANDROID
-	typedef sha1_hash sha1_hash;
-#endif
 
 #if TORRENT_USE_IOSTREAM
 
@@ -303,3 +304,4 @@ namespace libtorrent
 }
 
 #endif // TORRENT_PEER_ID_HPP_INCLUDED
+

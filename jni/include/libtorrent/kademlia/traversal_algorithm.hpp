@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2006-2012, Arvid Norberg & Daniel Wallin
+Copyright (c) 2006-2014, Arvid Norberg & Daniel Wallin
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -67,6 +67,7 @@ struct traversal_algorithm : boost::noncopyable
 	void failed(observer_ptr o, int flags = 0);
 	virtual ~traversal_algorithm();
 	void status(dht_lookup& l);
+	void abort();
 
 	void* allocate_observer();
 	void free_observer(void* ptr);
@@ -76,6 +77,7 @@ struct traversal_algorithm : boost::noncopyable
 
 	node_id const& target() const { return m_target; }
 
+	void resort_results();
 	void add_entry(node_id const& id, udp::endpoint addr, unsigned char flags);
 
 	traversal_algorithm(node_impl& node, node_id target);
@@ -112,13 +114,25 @@ protected:
 	int m_ref_count;
 
 	node_impl& m_node;
-	node_id m_target;
+	node_id const m_target;
 	std::vector<observer_ptr> m_results;
 	int m_invoke_count;
 	int m_branch_factor;
 	int m_responses;
 	int m_timeouts;
 	int m_num_target_nodes;
+};
+
+struct traversal_observer : observer
+{
+	traversal_observer(
+		boost::intrusive_ptr<traversal_algorithm> const& algorithm
+		, udp::endpoint const& ep, node_id const& id)
+		: observer(algorithm, ep, id)
+	{}
+
+	// parses out "nodes" and keeps traversing
+	virtual void reply(msg const&);
 };
 
 } } // namespace libtorrent::dht

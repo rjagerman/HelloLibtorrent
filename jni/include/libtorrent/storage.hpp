@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2003-2012, Arvid Norberg
+Copyright (c) 2003-2014, Arvid Norberg
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -62,6 +62,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "libtorrent/thread.hpp"
 #include "libtorrent/storage_defs.hpp"
 #include "libtorrent/allocator.hpp"
+#include "libtorrent/bitfield.hpp"
 
 // OVERVIEW
 //
@@ -74,6 +75,7 @@ POSSIBILITY OF SUCH DAMAGE.
 //	struct temp_storage : storage_interface
 //	{
 //		temp_storage(file_storage const& fs) : m_files(fs) {}
+//		void set_file_priority(std::vector<boost::uint8_t> const& prio) {}
 //		virtual bool initialize(bool allocate_files) { return false; }
 //		virtual bool has_any_file() { return false; }
 //		virtual int read(char* buf, int slot, int offset, int size)
@@ -152,15 +154,7 @@ namespace libtorrent
 		, std::vector<std::pair<size_type, std::time_t> > const& sizes
 		, bool compact_mode
 		, std::string* error = 0);
-/*
-	struct TORRENT_EXTRA_EXPORT file_allocation_failed: std::exception
-	{
-		file_allocation_failed(const char* error_msg): m_msg(error_msg) {}
-		virtual const char* what() const throw() { return m_msg.c_str(); }
-		virtual ~file_allocation_failed() throw() {}
-		std::string m_msg;
-	};
-*/
+
 	struct TORRENT_EXTRA_EXPORT partial_hash
 	{
 		partial_hash(): offset(0) {}
@@ -190,14 +184,16 @@ namespace libtorrent
 	// compact allocation mode it won't).
 	// 
 	// libtorrent comes with two built-in storage implementations; ``default_storage``
-	// and ``disabled_storage``. Their constructor functions are called ``default_storage_constructor``
+	// and ``disabled_storage``. Their constructor functions are called default_storage_constructor()
 	// and ``disabled_storage_constructor`` respectively. The disabled storage does
 	// just what it sounds like. It throws away data that's written, and it
 	// reads garbage. It's useful mostly for benchmarking and profiling purpose.
 	//
 	struct TORRENT_EXPORT storage_interface
 	{
+		// hidden
 		storage_interface(): m_disk_pool(0), m_settings(0) {}
+
 
 		// This function is called when the storage is to be initialized. The default storage
 		// will create directories and empty files at this point. If ``allocate_files`` is true,
@@ -210,6 +206,10 @@ namespace libtorrent
 		// It should return true if any of the files that is used in this storage exists on disk.
 		// If so, the storage will be checked for existing pieces before starting the download.
 		virtual bool has_any_file() = 0;
+
+
+		// change the priorities of files.
+		virtual void set_file_priority(std::vector<boost::uint8_t> const& prio) = 0;
 
 		// These functions should read or write the data in or to the given ``slot`` at the given ``offset``.
 		// It should read or write ``num_bufs`` buffers sequentially, where the size of each buffer
@@ -247,6 +247,8 @@ namespace libtorrent
 		// negative return value indicates an error
 		virtual int write(const char* buf, int slot, int offset, int size) = 0;
 
+		// returns the offset on the physical storage medium for the
+		// byte at offset ``offset`` in slot ``slot``.
 		virtual size_type physical_offset(int slot, int offset) = 0;
 
 		// This function is optional. It is supposed to return the first piece, starting at
@@ -393,10 +395,25 @@ namespace libtorrent
 	class TORRENT_EXPORT default_storage : public storage_interface, boost::noncopyable
 	{
 	public:
-		default_storage(file_storage const& fs, file_storage const* mapped, std::string const& path
-			, file_pool& fp, std::vector<boost::uint8_t> const& file_prio);
+		// constructs the default_storage based on the give file_storage (fs).
+		// ``mapped`` is an optional argument (it may be NULL). If non-NULL it
+		// represents the file mappsing that have been made to the torrent before
+		// adding it. That's where files are supposed to be saved and looked for
+		// on disk. ``save_path`` is the root save folder for this torrent.
+		// ``file_pool`` is the cache of file handles that the storage will use.
+		// All files it opens will ask the file_pool to open them. ``file_prio``
+		// is a vector indicating the priority of files on startup. It may be
+		// an empty vector. Any file whose index is not represented by the vector
+		// (because the vector is too short) are assumed to have priority 1.
+		// this is used to treat files with priority 0 slightly differently.
+		default_storage(file_storage const& fs, file_storage const* mapped
+			, std::string const& path, file_pool& fp
+			, std::vector<boost::uint8_t> const& file_prio);
+
+		// hidden
 		~default_storage();
 
+		void set_file_priority(std::vector<boost::uint8_t> const& prio);
 #ifndef TORRENT_NO_DEPRECATE
 		void finalize_file(int file);
 #endif
@@ -419,6 +436,8 @@ namespace libtorrent
 		bool verify_resume_data(lazy_entry const& rd, error_code& error);
 		bool write_resume_data(entry& rd) const;
 
+		// if the files in this storage are mapped, returns the mapped
+		// file_storage, otherwise returns the original file_storage object.
 		file_storage const& files() const { return m_mapped_files?*m_mapped_files:m_files; }
 
 	private:
@@ -460,6 +479,13 @@ namespace libtorrent
 		// instances use the same pool
 		file_pool& m_pool;
 
+		// this is a bitfield with one bit per file. A bit being set means
+		// we've written to that file previously. If we do write to a file
+		// whose bit is 0, we set the file size, to make the file allocated
+		// on disk (in full allocation mode) and just sparsely allocated in
+		// case of sparse allocation mode
+		bitfield m_file_created;
+
 		int m_page_size;
 		bool m_allocate_files;
 	};
@@ -476,12 +502,13 @@ namespace libtorrent
 	{
 	public:
 		disabled_storage(int piece_size) : m_piece_size(piece_size) {}
+		void set_file_priority(std::vector<boost::uint8_t> const& prio) {}
 		bool has_any_file() { return false; }
 		bool rename_file(int, std::string const&) { return false; }
 		bool release_files() { return false; }
 		bool delete_files() { return false; }
 		bool initialize(bool) { return false; }
-		int move_storage(std::string const&, int flags) { return 0; }
+		int move_storage(std::string const&, int) { return 0; }
 		int read(char*, int, int, int size) { return size; }
 		int write(char const*, int, int, int size) { return size; }
 		size_type physical_offset(int, int) { return 0; }
@@ -590,6 +617,10 @@ namespace libtorrent
 		void async_move_storage(std::string const& p, int flags
 			, boost::function<void(int, disk_io_job const&)> const& handler);
 
+		void async_set_file_priority(
+			std::vector<boost::uint8_t> const& prios
+			, boost::function<void(int, disk_io_job const&)> const& handler);
+
 		void async_save_resume_data(
 			boost::function<void(int, disk_io_job const&)> const& handler);
 
@@ -688,11 +719,13 @@ namespace libtorrent
 		int delete_files_impl() { return m_storage->delete_files(); }
 		int rename_file_impl(int index, std::string const& new_filename)
 		{ return m_storage->rename_file(index, new_filename); }
+		void set_file_priority_impl(std::vector<boost::uint8_t> const& p)
+		{ m_storage->set_file_priority(p); }
 
 		int move_storage_impl(std::string const& save_path, int flags);
 
 		int allocate_slot_for_piece(int piece_index);
-#if defined TORRENT_DEBUG && !defined TORRENT_DISABLE_INVARIANT_CHECKS
+#if TORRENT_USE_INVARIANT_CHECKS
 		void check_invariant() const;
 #endif
 #ifdef TORRENT_STORAGE_DEBUG

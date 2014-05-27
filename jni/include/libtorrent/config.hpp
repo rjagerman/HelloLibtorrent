@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2005-2012, Arvid Norberg
+Copyright (c) 2005-2014, Arvid Norberg
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -57,7 +57,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #if !defined BOOST_ASIO_SEPARATE_COMPILATION && !defined BOOST_ASIO_DYN_LINK
 #error you must define either BOOST_ASIO_SEPARATE_COMPILATION or BOOST_ASIO_DYN_LINK in your project in \
-	order for asio's declarations to be correct. If you're linking dynamically against libtorrent, define \
+	order for asios declarations to be correct. If you are linking dynamically against libtorrent, define \
 	BOOST_ASIO_DYN_LINK otherwise BOOST_ASIO_SEPARATE_COMPILATION. You can also use pkg-config or boost \
 	build, to automatically apply these defines
 #endif
@@ -250,8 +250,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #define TORRENT_MINGW
 #define TORRENT_WINDOWS
 #ifndef TORRENT_USE_ICONV
-#define TORRENT_USE_ICONV 0
-#define TORRENT_USE_LOCALE 1
+# define TORRENT_USE_ICONV 0
+# define TORRENT_USE_LOCALE 1
 #endif
 #define TORRENT_USE_RLIMIT 0
 #define TORRENT_USE_NETLINK 0
@@ -259,7 +259,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #define TORRENT_HAS_SALEN 0
 #define TORRENT_USE_GETIPFORWARDTABLE 1
 #ifndef TORRENT_USE_UNC_PATHS
-#define TORRENT_USE_UNC_PATHS 1
+# define TORRENT_USE_UNC_PATHS 1
 #endif
 
 // ==== WINDOWS ===
@@ -518,7 +518,8 @@ inline int snprintf(char* buf, int len, char const* fmt, ...)
 # ifdef _GLIBCXX_DEBUG
 #  define TORRENT_READ_HANDLER_MAX_SIZE 400
 # else
-#  define TORRENT_READ_HANDLER_MAX_SIZE 330
+// if this is not divisible by 8, we're wasting space
+#  define TORRENT_READ_HANDLER_MAX_SIZE 336
 # endif
 #endif
 
@@ -526,7 +527,8 @@ inline int snprintf(char* buf, int len, char const* fmt, ...)
 # ifdef _GLIBCXX_DEBUG
 #  define TORRENT_WRITE_HANDLER_MAX_SIZE 400
 # else
-#  define TORRENT_WRITE_HANDLER_MAX_SIZE 330
+// if this is not divisible by 8, we're wasting space
+#  define TORRENT_WRITE_HANDLER_MAX_SIZE 336
 # endif
 #endif
 
@@ -565,6 +567,24 @@ inline int snprintf(char* buf, int len, char const* fmt, ...)
 #define TORRENT_USE_BOOST_DATE_TIME 1
 #endif
 
+#endif
+
+// debug builds have asserts enabled by default, release
+// builds have asserts if they are explicitly enabled by
+// the release_asserts macro.
+#ifndef TORRENT_USE_ASSERTS
+#if defined TORRENT_DEBUG || TORRENT_RELEASE_ASSERTS
+#define TORRENT_USE_ASSERTS 1
+#else
+#define TORRENT_USE_ASSERTS 0
+#endif
+#endif // TORRENT_USE_ASSERTS
+
+#if defined TORRENT_DEBUG && TORRENT_USE_ASSERTS \
+	&& !defined TORRENT_DISABLE_INVARIANT_CHECKS
+#define TORRENT_USE_INVARIANT_CHECKS 1
+#else
+#define TORRENT_USE_INVARIANT_CHECKS 0
 #endif
 
 // for non-exception builds

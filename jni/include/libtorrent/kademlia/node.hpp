@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2006-2012, Arvid Norberg
+Copyright (c) 2006-2014, Arvid Norberg
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <libtorrent/kademlia/node_id.hpp>
 #include <libtorrent/kademlia/msg.hpp>
 #include <libtorrent/kademlia/find_data.hpp>
+#include <libtorrent/kademlia/item.hpp>
 
 #include <libtorrent/io.hpp>
 #include <libtorrent/session_settings.hpp>
@@ -103,8 +104,8 @@ bool TORRENT_EXTRA_EXPORT verify_message(lazy_entry const* msg, key_desc_t const
 // to remove stale peers
 struct peer_entry
 {
-	tcp::endpoint addr;
 	ptime added;
+	tcp::endpoint addr;
 	bool seed;
 };
 
@@ -132,13 +133,15 @@ struct dht_immutable_item
 	int size;
 };
 
-struct ed25519_public_key { char bytes[32]; };
+struct ed25519_public_key { char bytes[item_pk_len]; };
 
 struct dht_mutable_item : dht_immutable_item
 {
-	char sig[64];
+	char sig[item_sig_len];
 	boost::uint64_t seq;
 	ed25519_public_key key;
+	char* salt;
+	int salt_size;
 };
 
 // internal
@@ -229,8 +232,12 @@ public:
 	{ m_table.print_state(os); }
 #endif
 
-	void announce(sha1_hash const& info_hash, int listen_port, bool seed
+	enum flags_t { flag_seed = 1, flag_implied_port = 2 };
+	void announce(sha1_hash const& info_hash, int listen_port, int flags
 		, boost::function<void(std::vector<tcp::endpoint> const&)> f);
+
+	void get_item(sha1_hash const& target, boost::function<bool(item&)> f);
+	void get_item(char const* pk, std::string const& salt, boost::function<bool(item&)> f);
 
 	bool verify_token(std::string const& token, char const* info_hash
 		, udp::endpoint const& addr);
