@@ -34,6 +34,9 @@ std::string torrent_to_download;
 // Open libtorrent session
 libtorrent::session s;
 
+// The torrent parameters
+libtorrent::add_torrent_params p;
+
 extern "C" {
 
 	/* 
@@ -45,29 +48,58 @@ extern "C" {
 	}
 
 	/*
+	 * Starts listening on a libtorrent session 
+	 */
+	jstring Java_com_example_hellolibtorrent_HelloLibtorrent_startSession( JNIEnv* env, jobject thiz ) {
+		std::string result = "Started libtorrent session";
+
+		try {
+			
+			// Start listening
+			s.listen_on(std::make_pair(6881, 6889));
+
+		} catch (std::exception& e) {
+			result = e.what();
+		}
+
+		return env->NewStringUTF(result.c_str());
+	}
+
+	jstring Java_com_example_hellolibtorrent_HelloLibtorrent_openTorrent( JNIEnv* env, jobject thiz ) {
+		std::string result = "Loaded torrent file";
+
+		try {
+
+			// Set torrent info and load the torrent file
+			p.save_path = "/storage/sdcard0/Torrents/";
+			p.ti = new libtorrent::torrent_info(torrent_to_download);
+
+			// Get torrent size
+			std::stringstream ss;
+			ss  << "Opened torrent:\n"
+				<< "  Size: " << p.ti->total_size() << " bytes\n"
+				<< "  Save path: " << p.save_path;
+			result = ss.str();
+
+
+		} catch (std::exception& e) {
+			result = e.what();
+		}
+
+		return env->NewStringUTF(result.c_str());
+	}
+
+	/*
 	 * Starts the download and returns a status message or error message
 	 */
 	jstring Java_com_example_hellolibtorrent_HelloLibtorrent_startDownload( JNIEnv* env, jobject thiz ) {
 
 		std::string result = "nothing";
 		try {
-			// Start listening
-			s.listen_on(std::make_pair(6881, 6889));
-
-			// Grab torrent file
-			libtorrent::add_torrent_params p;
-			p.save_path = "/storage/sdcard0/Torrents/";
-			p.ti = new libtorrent::torrent_info(torrent_to_download);
 
 			// Start torrent
 			h = s.add_torrent(p);
-
-			// Get torrent size
-			std::stringstream ss;
-			ss  << "Started torrent:\n"
-				<< "  Size: " << p.ti->total_size() << " bytes\n"
-				<< "  Save path: " << p.save_path;
-			result = ss.str();
+			result = "Added torrent to session";
 
 		} catch (std::exception& e) {
 			result = e.what();
@@ -82,45 +114,48 @@ extern "C" {
 	jstring Java_com_example_hellolibtorrent_HelloLibtorrent_status( JNIEnv* env, jobject thiz ) {
 		std::string output = "???";
 		try {
+			if (!h.is_valid()) {
+				output = "Handle is not valid...";
+			} else {
+				// Get torrent status
+				libtorrent::torrent_status status = h.status();
 
-			// Get torrent status
-			libtorrent::torrent_status status = h.status();
+				// Convert torrent state from enum to string
+				std::string stringstate = "Unknown state";
+				switch(status.state) {
+					case libtorrent::torrent_status::queued_for_checking:
+						stringstate = "Queued for checking"; break;
+					case libtorrent::torrent_status::checking_files:
+						stringstate = "Checking files"; break;
+					case libtorrent::torrent_status::downloading_metadata:
+						stringstate = "Downloading metadata"; break;
+					case libtorrent::torrent_status::downloading:
+						stringstate = "Downloading"; break;
+					case libtorrent::torrent_status::finished:
+						stringstate = "Finished"; break;
+					case libtorrent::torrent_status::seeding:
+						stringstate = "Seeding"; break;
+					case libtorrent::torrent_status::allocating:
+						stringstate = "Allocating"; break;
+					case libtorrent::torrent_status::checking_resume_data:
+						stringstate = "Checking resume data"; break;
+					default:
+						stringstate = "Unknown state";
+				}
 
-			// Convert torrent state from enum to string
-			std::string stringstate = "Unknown state";
-			switch(status.state) {
-				case libtorrent::torrent_status::queued_for_checking:
-					stringstate = "Queued for checking"; break;
-				case libtorrent::torrent_status::checking_files:
-					stringstate = "Checking files"; break;
-				case libtorrent::torrent_status::downloading_metadata:
-					stringstate = "Downloading metadata"; break;
-				case libtorrent::torrent_status::downloading:
-					stringstate = "Downloading"; break;
-				case libtorrent::torrent_status::finished:
-					stringstate = "Finished"; break;
-				case libtorrent::torrent_status::seeding:
-					stringstate = "Seeding"; break;
-				case libtorrent::torrent_status::allocating:
-					stringstate = "Allocating"; break;
-				case libtorrent::torrent_status::checking_resume_data:
-					stringstate = "Checking resume data"; break;
-				default:
-					stringstate = "Unknown state";
+				// Get torrent status and print it in string format
+				std::stringstream ss;
+				ss  << "Torrent status\n"
+				    << "  Name: " << status.name << "\n"
+				    << "  Error: " << status.error << "\n"
+					<< "  State: " << stringstate << "\n"
+					<< "  Progress: " << (status.progress * 100.0) << "%\n"
+					<< "  Seeds: " << status.list_seeds << " (Active: " << status.num_seeds << ")\n"
+					<< "  Peers: " << status.list_peers << " (Active: " << status.num_peers << ")\n"
+					<< "  Download rate: " << status.download_rate << " bps\n"
+					<< "  Upload rate: " << status.upload_rate << " bps\n";
+				output = ss.str();
 			}
-
-			// Get torrent status and print it in string format
-			std::stringstream ss;
-			ss  << "Torrent status\n"
-			    << "  Name: " << status.name << "\n"
-				<< "  State: " << stringstate << "\n"
-				<< "  Error: " << status.error << "\n"
-				<< "  Seeds: " << status.list_seeds << " (Active: " << status.num_seeds << ")\n"
-				<< "  Peers: " << status.list_peers << " (Active: " << status.num_peers << ")\n"
-				<< "  Download rate: " << status.download_rate << " bps\n"
-				<< "  Upload rate: " << status.upload_rate << " bps\n"
-				<< "  Download progress: " << (status.progress * 100.0) << "%";
-			output = ss.str();
 
 		} catch(std::exception& e) {
 			output = e.what();

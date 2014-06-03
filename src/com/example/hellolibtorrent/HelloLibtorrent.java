@@ -64,7 +64,13 @@ public class HelloLibtorrent extends Activity
         this.setContentView(ll);
 
         // Get the torrent to download and print it
-        appendToOutput("We are going to download:\n  " + whichTorrent(), true);        
+        appendToOutput("We are going to download:\n  " + whichTorrent(), true);    
+
+        // Start session
+        appendToOutput(startSession(), true);
+
+        // Open torrent file
+        appendToOutput(openTorrent(), true);    
 
         // On click, print the current progress of the download to the output
         b.setOnClickListener(new OnClickListener() {
@@ -90,7 +96,7 @@ public class HelloLibtorrent extends Activity
                                 }
                             });
                         }
-                    }, 0, 1);
+                    }, 0, 3);
 
                     // Ensure this function doesn't get called again
                     started = true;
@@ -99,6 +105,23 @@ public class HelloLibtorrent extends Activity
                 }
             }
         });
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(1500);
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            b.performClick();
+                        }
+                    });
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
+        
     }
 
     /* Appends given text to the output TextView. 
@@ -115,6 +138,14 @@ public class HelloLibtorrent extends Activity
     /* A native method that tells us which torrent file we are going to download
      */
     public native String  whichTorrent();
+
+    /* A native method that starts the download of the hardcoded torrent
+     */
+    public native String startSession();
+
+    /* A native method that starts the download of the hardcoded torrent
+     */
+    public native String openTorrent();
 
     /* A native method that starts the download of the hardcoded torrent
      */
