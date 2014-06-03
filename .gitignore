@@ -2,8 +2,10 @@ bin/
 gen/
 libs/
 obj/
+res/
 *.log
 build.xml
 local.properties
 proguard-project.txt
 project.properties
+ant.properties
