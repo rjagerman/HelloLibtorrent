@@ -6,7 +6,7 @@ This is a basic setup to test libtorrent on android.
 Before building, make sure to create a project out of the cloned folder:
 
     cd HelloLibtorrent
-    android update project -p .
+    android update project -p . -t android-14
 
 You can then run the `clean-and-build.sh` script to build the entire thing. This will also automatically compile and create the .apk file.
 
