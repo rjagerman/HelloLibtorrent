@@ -7,6 +7,3 @@ ndk-build clean &&
 ndk-build &&
 ant clean &&
 ant debug 
-#adb install bin/HelloLibtorrent-debug.apk &&
-#adb logcat -c &&
-#adb logcat
