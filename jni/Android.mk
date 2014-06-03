@@ -15,27 +15,6 @@
 LOCAL_PATH := $(call my-dir)
 
 # ------------------------------------------
-# Define prebuilt static boost system library
-include $(CLEAR_VARS)
-LOCAL_MODULE    := libboost_system
-LOCAL_SRC_FILES := libs/libboost_system.a
-include $(PREBUILT_STATIC_LIBRARY)
-
-# ------------------------------------------
-# Define prebuilt static boost filesystem library
-include $(CLEAR_VARS)
-LOCAL_MODULE    := libboost_filesystem
-LOCAL_SRC_FILES := libs/libboost_filesystem.a
-include $(PREBUILT_STATIC_LIBRARY)
-
-# ------------------------------------------
-# Define prebuilt static boost python library
-#include $(CLEAR_VARS)
-#LOCAL_MODULE    := libboost_python
-#LOCAL_SRC_FILES := libs/libboost_python.a
-#include $(PREBUILT_STATIC_LIBRARY)
-
-# ------------------------------------------
 # Define prebuilt shared libtorrent library
 include $(CLEAR_VARS)
 LOCAL_MODULE    := libtorrent-rasterbar
@@ -60,8 +39,6 @@ LOCAL_CFLAGS     := -DBOOST_ASIO_HASH_MAP_BUCKETS=1021 \
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
 
 LOCAL_SRC_FILES  := hello.cpp
-
-LOCAL_STATIC_LIBRARIES := libboost_system libboost_filesystem #libboost_python
 
 LOCAL_SHARED_LIBRARIES := libtorrent-rasterbar
 

@@ -44,16 +44,19 @@ jstring Java_com_example_hellolibtorrent_HelloLibtorrent_startTorrent( JNIEnv* e
 /*
  * Returns the current status of the torrent in a single string
  */
+int counter = 0;
 jstring Java_com_example_hellolibtorrent_HelloLibtorrent_getStatus( JNIEnv* env, jobject thiz ) {
 	std::stringstream result;
 
 	if (h.is_valid()) {
 		libtorrent::torrent_status status = h.status();
-		result << "Progress: " << (status.progress * 100.0) << "%" << std::endl
-		    << " Download rate: " << status.download_rate << std::endl
-		    << " Upload rate: " << status.upload_rate << std::endl
-		    << " Seeds: " << status.num_seeds << std::endl
-		    << " Peers: " << status.num_peers;
+		counter++;
+		result << "Status update " << counter << std::endl
+		    << "  Progress: " << (status.progress * 100.0) << "%" << std::endl
+		    << "  Download rate: " << status.download_rate << std::endl
+		    << "  Upload rate: " << status.upload_rate << std::endl
+		    << "  Seeds: " << status.num_seeds << std::endl
+		    << "  Peers: " << status.num_peers;
 	} else {
 		result << "Handle is not valid";
 	}
