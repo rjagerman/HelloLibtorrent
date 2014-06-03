@@ -36,6 +36,7 @@ public class HelloLibtorrent extends Activity {
                     public void run() {
                         String status = getStatus();
                         textView.setText(status);
+                        System.out.println(status);
                     }
                 });
             }
