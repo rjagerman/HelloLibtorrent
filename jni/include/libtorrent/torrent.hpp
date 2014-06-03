@@ -80,6 +80,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "libtorrent/peer_connection.hpp"
 #endif
 
+//#define TORRENT_DEBUG_STREAMING 1
+
 namespace libtorrent
 {
 	class http_parser;
@@ -103,6 +105,29 @@ namespace libtorrent
 		struct session_impl;
 		struct piece_checker_data;
 	}
+
+	struct time_critical_piece
+	{
+		// when this piece was first requested
+		ptime first_requested;
+		// when this piece was last requested
+		ptime last_requested;
+		// by what time we want this piece
+		ptime deadline;
+		// 1 = send alert with piece data when available
+		int flags;
+		// how many peers it's been requested from
+		int peers;
+		// the piece index
+		int piece;
+#ifdef TORRENT_DEBUG_STREAMING
+		// the number of multiple requests are allowed
+		// to blocks still not downloaded (debugging only)
+		int timed_out;
+#endif
+		bool operator<(time_critical_piece const& rhs) const
+		{ return deadline < rhs.deadline; }
+	};
 
 	// a torrent is a class that holds information
 	// for a specific download. It updates itself against
@@ -336,12 +361,6 @@ namespace libtorrent
 		void connect_to_url_seed(std::list<web_seed_entry>::iterator url);
 		bool connect_to_peer(policy::peer* peerinfo, bool ignore_limit = false);
 
-		void set_ratio(float r)
-		{ TORRENT_ASSERT(r >= 0.0f); m_ratio = r; }
-
-		float ratio() const
-		{ return m_ratio; }
-
 		int priority() const { return m_priority; }
 		void set_priority(int prio)
 		{
@@ -535,6 +554,11 @@ namespace libtorrent
 
 		int num_have() const
 		{
+			// pretend we have every piece when in seed mode
+			if (m_seed_mode) {
+				return m_torrent_file->num_pieces();
+			}
+
 			return has_picker()
 				? m_picker->num_have()
 				: m_torrent_file->num_pieces();
@@ -769,15 +793,6 @@ namespace libtorrent
 // --------------------------------------------
 		// RESOURCE MANAGEMENT
 
-		void add_free_upload(size_type diff)
-		{
-			TORRENT_ASSERT(diff >= 0);
-			if (UINT_MAX - m_available_free_upload > diff)
-				m_available_free_upload += boost::uint32_t(diff);
-			else
-				m_available_free_upload = UINT_MAX;
-		}
-
 		int get_peer_upload_limit(tcp::endpoint ip) const;
 		int get_peer_download_limit(tcp::endpoint ip) const;
 		void set_peer_upload_limit(tcp::endpoint ip, int limit);
@@ -823,16 +838,8 @@ namespace libtorrent
 		int sequence_number() const { return m_sequence_number; }
 
 		bool seed_mode() const { return m_seed_mode; }
-		void leave_seed_mode(bool seed)
-		{
-			if (!m_seed_mode) return;
-			m_seed_mode = false;
-			// seed is false if we turned out not
-			// to be a seed after all
-			if (!seed) force_recheck();
-			m_num_verified = 0;
-			m_verified.clear();
-		}
+		void leave_seed_mode(bool seed);
+
 		bool all_verified() const
 		{ return int(m_num_verified) == m_torrent_file->num_pieces(); }
 		bool verified_piece(int piece) const
@@ -841,14 +848,7 @@ namespace libtorrent
 			TORRENT_ASSERT(piece >= 0);
 			return m_verified.get_bit(piece);
 		}
-		void verified(int piece)
-		{
-			TORRENT_ASSERT(piece < int(m_verified.size()));
-			TORRENT_ASSERT(piece >= 0);
-			TORRENT_ASSERT(m_verified.get_bit(piece) == false);
-			++m_num_verified;
-			m_verified.set_bit(piece);
-		}
+		void verified(int piece);
 
 		bool add_merkle_nodes(std::map<int, sha1_hash> const& n, int piece);
 
@@ -881,8 +881,14 @@ namespace libtorrent
 			, std::string const& private_key
 			, std::string const& dh_params
 			, std::string const& passphrase);
+		void set_ssl_cert_buffer(std::string const& certificate
+			, std::string const& private_key
+			, std::string const& dh_params);
 		boost::asio::ssl::context* ssl_ctx() const { return m_ssl_ctx.get(); } 
 #endif
+
+		int num_time_critical_pieces() const
+		{ return m_time_critical_pieces.size(); }
 
 	private:
 
@@ -1023,24 +1029,6 @@ namespace libtorrent
 		std::vector<announce_entry> m_trackers;
 		// this is an index into m_trackers
 
-		struct time_critical_piece
-		{
-			// when this piece was first requested
-			ptime first_requested;
-			// when this piece was last requested
-			ptime last_requested;
-			// by what time we want this piece
-			ptime deadline;
-			// 1 = send alert with piece data when available
-			int flags;
-			// how many peers it's been requested from
-			int peers;
-			// the piece index
-			int piece;
-			bool operator<(time_critical_piece const& rhs) const
-			{ return deadline < rhs.deadline; }
-		};
-
 		// this list is sorted by time_critical_piece::deadline
 		std::deque<time_critical_piece> m_time_critical_pieces;
 
@@ -1116,15 +1104,6 @@ namespace libtorrent
 		// encrypted hand shakes
 		sha1_hash m_obfuscated_hash;
 #endif
-
-		// the upload/download ratio that each peer
-		// tries to maintain.
-		// 0 is infinite
-		float m_ratio;
-
-		// free download we have got that hasn't
-		// been distributed yet.
-		boost::uint32_t m_available_free_upload;
 
 		// the average time it takes to download one time critical piece
 		boost::uint32_t m_average_piece_time;

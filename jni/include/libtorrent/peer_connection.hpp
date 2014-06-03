@@ -399,17 +399,11 @@ namespace libtorrent
 		// It will reset the used bandwidth to 0.
 		void reset_upload_quota();
 
-		// free upload.
-		size_type total_free_upload() const;
-		void add_free_upload(size_type free_upload);
-
 		// trust management.
 		virtual void received_valid_data(int index);
 		// returns false if the peer should not be
 		// disconnected
 		virtual bool received_invalid_data(int index, bool single_peer);
-
-		size_type share_diff() const;
 
 		// a connection is local if it was initiated by us.
 		// if it was an incoming connection, it is remote
@@ -510,7 +504,9 @@ namespace libtorrent
 
 		bool can_request_time_critical() const;
 
-		void make_time_critical(piece_block const& block);
+		// returns true if the specified block was actually made time-critical.
+		// if the block was already time-critical, it returns false.
+		bool make_time_critical(piece_block const& block);
 
 		// adds a block to the request queue
 		// returns true if successful, false otherwise
@@ -907,14 +903,6 @@ namespace libtorrent
 		// this peer the last time.
 		ptime m_became_uninteresting;
 
-		// the amount of data this peer has been given
-		// as free upload. This is distributed from
-		// peers from which we get free download
-		// this will be negative on a peer from which
-		// we get free download, and positive on peers
-		// that we give the free upload, to keep the balance.
-		size_type m_free_upload;
-
 		// the total payload download bytes
 		// at the last unchoke round. This is used to
 		// measure the number of bytes transferred during
@@ -1123,10 +1111,10 @@ namespace libtorrent
 		// another peer sends us a have message for this piece
 		int m_superseed_piece[2];
 
-		// bytes downloaded since last second
+		// pieces downloaded since last second
 		// timer timeout; used for determining 
 		// approx download rate
-		int m_remote_bytes_dled;
+		int m_remote_pieces_dled;
 
 		// approximate peer download rate
 		int m_remote_dl_rate;

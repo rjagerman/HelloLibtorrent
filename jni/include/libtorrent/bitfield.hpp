@@ -38,6 +38,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <cstring> // for memset and memcpy
 #include <cstdlib> // for malloc, free and realloc
 #include <boost/cstdint.hpp> // uint32_t
+#include <algorithm> // for min()
 
 namespace libtorrent
 {
@@ -47,7 +48,7 @@ namespace libtorrent
 	{
 		// constructs a new bitfield. The default constructor creates an empty
 		// bitfield. ``bits`` is the size of the bitfield (specified in bits).
-		// `` val`` is the value to initialize the bits to. If not specified
+		// ``val`` is the value to initialize the bits to. If not specified
 		// all bits are initialized to 0.
 		//
 		// The constructor taking a pointer ``b`` and ``bits`` copies a bitfield

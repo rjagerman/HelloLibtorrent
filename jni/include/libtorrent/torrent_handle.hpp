@@ -765,6 +765,9 @@ namespace libtorrent
 		// For SSL torrents, use this to specify a path to a .pem file to use as
 		// this client's certificate. The certificate must be signed by the
 		// certificate in the .torrent file to be valid.
+		//
+		// The set_ssl_certificate_buffer() overload takes the actual certificate,
+		// private key and DH params as strings, rather than paths to files.
 		// 
 		// ``cert`` is a path to the (signed) certificate in .pem format
 		// corresponding to this torrent.
@@ -792,6 +795,9 @@ namespace libtorrent
 			, std::string const& private_key
 			, std::string const& dh_params
 			, std::string const& passphrase = "");
+		void set_ssl_certificate_buffer(std::string const& certificate
+			, std::string const& private_key
+			, std::string const& dh_params);
 
 		// Returns the storage implementation for this torrent. This depends on the
 		// storage contructor function that was passed to add_torrent.
@@ -1020,7 +1026,9 @@ namespace libtorrent
 
 		// ``set_sequential_download()`` enables or disables *sequential
 		// download*. When enabled, the piece picker will pick pieces in sequence
-		// instead of rarest first.
+		// instead of rarest first. In this mode, piece priorities are ignored,
+		// with the exception of priority 7, which are still preferred over the
+		// sequential piece order.
 		// 
 		// Enabling sequential download will affect the piece distribution
 		// negatively in the swarm. It should be used sparingly.
